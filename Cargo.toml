@@ -1,0 +1,20 @@
+[package]
+name = "kale-o-matic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
+soroban-client = { path = "../../vinamogit/rs-soroban-client/" }
+stellar-strkey = "0.0.11"
+thiserror = "2.0.7"
+tokio = { version = "1.42.0", features = ["full", "time"] }
+rayon = "1.10.0"
+crossbeam-channel = "0.5.14"
+ctrlc = "3.4.5"
+keccak-asm = "0.1.4"
+
+
+[profile.release]
+panic = "abort"
+strip = "symbols"
