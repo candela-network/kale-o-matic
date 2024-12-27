@@ -13,11 +13,11 @@ use soroban_client::soroban_rpc::soroban_rpc::{
 use soroban_client::transaction::TransactionBehavior;
 use soroban_client::transaction::TransactionBuilder;
 use soroban_client::transaction_builder::TransactionBuilderBehavior;
-use soroban_client::xdr::xdr::next::LedgerKeyContractData;
-use soroban_client::xdr::xdr::next::ScBytes;
-use soroban_client::xdr::xdr::next::{int128_helpers::*, LedgerKey};
-use soroban_client::xdr::xdr::next::{ContractDataDurability, LedgerEntryData};
-use soroban_client::xdr::xdr::next::{Hash, Limits, ReadXdr, ScAddress, ScSymbol, ScVal, ScVec};
+use soroban_client::xdr::next::LedgerKeyContractData;
+use soroban_client::xdr::next::ScBytes;
+use soroban_client::xdr::next::{int128_helpers::*, LedgerKey};
+use soroban_client::xdr::next::{ContractDataDurability, LedgerEntryData};
+use soroban_client::xdr::next::{Hash, Limits, ReadXdr, ScAddress, ScSymbol, ScVal, ScVec};
 use thiserror::Error;
 
 use crate::types::{Block, Pail};
@@ -78,7 +78,7 @@ pub enum KaleErrors {
     #[error("Default error")]
     DefaultError,
     #[error("SorobanError")]
-    SorobanError(#[from] soroban_client::xdr::xdr::next::Error),
+    SorobanError(#[from] soroban_client::xdr::next::Error),
     #[error("UnknownError")]
     UnknownError(#[from] Box<dyn std::error::Error + Send>),
     #[error("ReqwestError")]
@@ -107,7 +107,7 @@ impl KaleClient {
         KaleClient {
             contract: Contracts::new(contract_id).unwrap(),
             network,
-            server: Server::new(rpc_url, opts).unwrap(),
+            server: Server::new(rpc_url, opts),
             keypair,
             //       max_fee,
         }
@@ -417,7 +417,7 @@ impl FarmTrait for KaleClient {
 
     async fn plant(&self, farmer: &Address, amount: i128) -> Result<(), Self::Error> {
         let farmer_val: ScVal = farmer.to_sc_val().unwrap();
-        let amount_val = ScVal::I128(soroban_client::xdr::xdr::next::Int128Parts {
+        let amount_val = ScVal::I128(soroban_client::xdr::next::Int128Parts {
             hi: i128_hi(amount),
             lo: i128_lo(amount),
         });

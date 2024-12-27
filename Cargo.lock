@@ -1586,7 +1586,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-client"
-version = "0.3.5"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47749a6c2e1fa4a43f96f5130fb92546494f7c4ec265db67a0bd9dbfdea7d8bf"
 dependencies = [
  "futures",
  "hex",
@@ -1606,7 +1608,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stellar-baselib"
-version = "0.4.4"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4b5fee4144030b3a059ac8a1a354151ce3a5a7fe6e3cea8f635ed5676282b1f"
 dependencies = [
  "arrayref",
  "getrandom",
