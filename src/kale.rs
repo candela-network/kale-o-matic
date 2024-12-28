@@ -126,57 +126,57 @@ impl KaleClient {
             durability: ContractDataDurability::Temporary,
         });
 
-        let block_data = self
-            .server
-            .get_ledger_entries(vec![key])
-            .await
-            .expect("Cannot read block");
-        if let Some(entries) = block_data.result.entries {
-            let mut sequence = 0;
-            let mut stake = 0;
-            let mut gap = None;
-            let mut zeros = None;
-            for e in entries {
-                let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
-                    if let ScVal::Map(Some(storage)) = contract_data_entry.val {
-                        for s in storage.iter() {
-                            let seq_symbol = ScVal::Symbol("sequence".try_into().unwrap());
-                            let stake_symbol = ScVal::Symbol("stake".try_into().unwrap());
-                            let gap_symbol = ScVal::Symbol("gap".try_into().unwrap());
-                            let zeros_symbol = ScVal::Symbol("zeros".try_into().unwrap());
-                            if s.key == gap_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    gap = Some(v);
+        let ledger_result = self.server.get_ledger_entries(vec![key]).await;
+        if let Ok(block_data) = ledger_result {
+            if let Some(entries) = block_data.result.entries {
+                let mut sequence = 0;
+                let mut stake = 0;
+                let mut gap = None;
+                let mut zeros = None;
+                for e in entries {
+                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
+                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                        if let ScVal::Map(Some(storage)) = contract_data_entry.val {
+                            for s in storage.iter() {
+                                let seq_symbol = ScVal::Symbol("sequence".try_into().unwrap());
+                                let stake_symbol = ScVal::Symbol("stake".try_into().unwrap());
+                                let gap_symbol = ScVal::Symbol("gap".try_into().unwrap());
+                                let zeros_symbol = ScVal::Symbol("zeros".try_into().unwrap());
+                                if s.key == gap_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        gap = Some(v);
+                                    }
                                 }
-                            }
-                            if s.key == zeros_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    zeros = Some(v);
+                                if s.key == zeros_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        zeros = Some(v);
+                                    }
                                 }
-                            }
-                            if s.key == seq_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    sequence = v;
+                                if s.key == seq_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        sequence = v;
+                                    }
                                 }
-                            }
-                            if s.key == stake_symbol {
-                                if let ScVal::I128(v) = s.val.clone() {
-                                    stake = i128_from_pieces(v.hi, v.lo);
+                                if s.key == stake_symbol {
+                                    if let ScVal::I128(v) = s.val.clone() {
+                                        stake = i128_from_pieces(v.hi, v.lo);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            let pail = Pail {
-                sequence,
-                gap,
-                stake,
-                zeros,
-            };
-            if sequence > 0 {
-                Some(pail)
+                let pail = Pail {
+                    sequence,
+                    gap,
+                    stake,
+                    zeros,
+                };
+                if sequence > 0 {
+                    Some(pail)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -197,85 +197,86 @@ impl KaleClient {
             durability: ContractDataDurability::Temporary,
         });
 
-        let block_data = self
-            .server
-            .get_ledger_entries(vec![key])
-            .await
-            .expect("Cannot read block");
-        if let Some(entries) = block_data.result.entries {
-            let mut block = Block::default();
-            for e in entries {
-                let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
-                    if let ScVal::Map(Some(storage)) = contract_data_entry.val {
-                        let timestamp_symbol = ScVal::Symbol("timestamp".try_into().unwrap());
-                        let min_gap_symbol = ScVal::Symbol("min_gap".try_into().unwrap());
-                        let min_stake_symbol = ScVal::Symbol("min_stake".try_into().unwrap());
-                        let min_zeros_symbol = ScVal::Symbol("min_zeros".try_into().unwrap());
-                        let max_gap_symbol = ScVal::Symbol("max_gap".try_into().unwrap());
-                        let max_stake_symbol = ScVal::Symbol("max_stake".try_into().unwrap());
-                        let max_zeros_symbol = ScVal::Symbol("max_zeros".try_into().unwrap());
-                        let entropy_symbol = ScVal::Symbol("entropy".try_into().unwrap());
-                        let staked_total_symbol = ScVal::Symbol("staked_total".try_into().unwrap());
-                        let normalized_total_symbol =
-                            ScVal::Symbol("normalized_total".try_into().unwrap());
-                        for s in storage.iter() {
-                            if s.key == timestamp_symbol {
-                                if let ScVal::U64(v) = s.val {
-                                    block.timestamp = v;
+        let ledger_result = self.server.get_ledger_entries(vec![key]).await;
+        if let Ok(block_data) = ledger_result {
+            if let Some(entries) = block_data.result.entries {
+                let mut block = Block::default();
+                for e in entries {
+                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
+                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                        if let ScVal::Map(Some(storage)) = contract_data_entry.val {
+                            let timestamp_symbol = ScVal::Symbol("timestamp".try_into().unwrap());
+                            let min_gap_symbol = ScVal::Symbol("min_gap".try_into().unwrap());
+                            let min_stake_symbol = ScVal::Symbol("min_stake".try_into().unwrap());
+                            let min_zeros_symbol = ScVal::Symbol("min_zeros".try_into().unwrap());
+                            let max_gap_symbol = ScVal::Symbol("max_gap".try_into().unwrap());
+                            let max_stake_symbol = ScVal::Symbol("max_stake".try_into().unwrap());
+                            let max_zeros_symbol = ScVal::Symbol("max_zeros".try_into().unwrap());
+                            let entropy_symbol = ScVal::Symbol("entropy".try_into().unwrap());
+                            let staked_total_symbol =
+                                ScVal::Symbol("staked_total".try_into().unwrap());
+                            let normalized_total_symbol =
+                                ScVal::Symbol("normalized_total".try_into().unwrap());
+                            for s in storage.iter() {
+                                if s.key == timestamp_symbol {
+                                    if let ScVal::U64(v) = s.val {
+                                        block.timestamp = v;
+                                    }
                                 }
-                            }
-                            if s.key == min_gap_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    block.min_gap = v;
+                                if s.key == min_gap_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        block.min_gap = v;
+                                    }
                                 }
-                            }
-                            if s.key == min_stake_symbol {
-                                if let ScVal::I128(v) = s.val.clone() {
-                                    block.min_stake = i128_from_pieces(v.hi, v.lo);
+                                if s.key == min_stake_symbol {
+                                    if let ScVal::I128(v) = s.val.clone() {
+                                        block.min_stake = i128_from_pieces(v.hi, v.lo);
+                                    }
                                 }
-                            }
-                            if s.key == min_zeros_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    block.min_zeros = v;
+                                if s.key == min_zeros_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        block.min_zeros = v;
+                                    }
                                 }
-                            }
-                            if s.key == max_gap_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    block.max_gap = v;
+                                if s.key == max_gap_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        block.max_gap = v;
+                                    }
                                 }
-                            }
-                            if s.key == max_stake_symbol {
-                                if let ScVal::I128(v) = s.val.clone() {
-                                    block.max_stake = i128_from_pieces(v.hi, v.lo);
+                                if s.key == max_stake_symbol {
+                                    if let ScVal::I128(v) = s.val.clone() {
+                                        block.max_stake = i128_from_pieces(v.hi, v.lo);
+                                    }
                                 }
-                            }
-                            if s.key == max_zeros_symbol {
-                                if let ScVal::U32(v) = s.val {
-                                    block.max_zeros = v;
+                                if s.key == max_zeros_symbol {
+                                    if let ScVal::U32(v) = s.val {
+                                        block.max_zeros = v;
+                                    }
                                 }
-                            }
-                            if s.key == entropy_symbol {
-                                if let ScVal::Bytes(ScBytes(b)) = s.val.clone() {
-                                    block.entropy.copy_from_slice(&b.to_vec());
+                                if s.key == entropy_symbol {
+                                    if let ScVal::Bytes(ScBytes(b)) = s.val.clone() {
+                                        block.entropy.copy_from_slice(&b.to_vec());
+                                    }
                                 }
-                            }
-                            if s.key == staked_total_symbol {
-                                if let ScVal::I128(v) = s.val.clone() {
-                                    block.staked_total = i128_from_pieces(v.hi, v.lo);
+                                if s.key == staked_total_symbol {
+                                    if let ScVal::I128(v) = s.val.clone() {
+                                        block.staked_total = i128_from_pieces(v.hi, v.lo);
+                                    }
                                 }
-                            }
-                            if s.key == normalized_total_symbol {
-                                if let ScVal::I128(v) = s.val.clone() {
-                                    block.normalized_total = i128_from_pieces(v.hi, v.lo);
+                                if s.key == normalized_total_symbol {
+                                    if let ScVal::I128(v) = s.val.clone() {
+                                        block.normalized_total = i128_from_pieces(v.hi, v.lo);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            if block.timestamp > 0 {
-                Some(block)
+                if block.timestamp > 0 {
+                    Some(block)
+                } else {
+                    None
+                }
             } else {
                 None
             }
