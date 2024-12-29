@@ -286,27 +286,29 @@ impl KaleClient {
     }
 
     pub async fn get_index(&self) -> u32 {
-        let data = self
+        let ledger_result = self
             .server
             .get_ledger_entries(vec![self.contract.get_footprint()])
-            .await
-            .expect("Cannot read data");
+            .await;
 
-        let index: u32 = if let Some(entries) = data.result.entries {
-            let mut idx = 0;
-            for e in entries {
-                let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
-                    if let ScVal::ContractInstance(instance) = contract_data_entry.val {
-                        if let Some(storage) = instance.storage {
-                            for s in storage.iter() {
-                                if let ScVal::Vec(Some(v)) = s.key.clone() {
-                                    let farm_index = ScVal::Symbol("FarmIndex".try_into().unwrap());
-                                    if let Some(symbol) = v.first() {
-                                        if symbol == &farm_index {
-                                            if let ScVal::U32(i) = s.val {
-                                                idx = i;
-                                                break;
+        if let Ok(data) = ledger_result {
+            if let Some(entries) = data.result.entries {
+                let mut idx = 0;
+                for e in entries {
+                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
+                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                        if let ScVal::ContractInstance(instance) = contract_data_entry.val {
+                            if let Some(storage) = instance.storage {
+                                for s in storage.iter() {
+                                    if let ScVal::Vec(Some(v)) = s.key.clone() {
+                                        let farm_index =
+                                            ScVal::Symbol("FarmIndex".try_into().unwrap());
+                                        if let Some(symbol) = v.first() {
+                                            if symbol == &farm_index {
+                                                if let ScVal::U32(i) = s.val {
+                                                    idx = i;
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -315,12 +317,13 @@ impl KaleClient {
                         }
                     }
                 }
+                idx
+            } else {
+                0
             }
-            idx
         } else {
             0
-        };
-        index
+        }
     }
 
     async fn invoke(
