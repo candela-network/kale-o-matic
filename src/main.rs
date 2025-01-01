@@ -126,10 +126,10 @@ async fn main() {
 
         let min_zeros = cli.min_zeros;
         let max_zeros = cli.max_zeros;
-        let mut prev_index = 0;
         let mut harvestable = 0;
 
         // First harvest past 24h
+        let mut prev_index = client.get_index().await;
         let mut last_harvest = harvesting(&client, &farmer, 0, prev_index).await;
 
         loop {
@@ -166,53 +166,59 @@ async fn planting(
     loop {
         // Find the next index and entropy
         let index = client.get_index().await;
-        let block = client.get_block(index).await.unwrap();
-        let entropy = block.entropy;
-        let block_duration = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            - block.timestamp;
-
-        let in_block = BLOCK_INTERVAL > block_duration;
-        let remaining = if in_block {
-            BLOCK_INTERVAL - block_duration
+        let maybe_block = if index > 0 {
+            client.get_block(index).await
         } else {
-            0
+            None
         };
+        if let Some(block) = maybe_block {
+            let entropy = block.entropy;
+            let block_duration = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                - block.timestamp;
 
-        if index != prev_index && remaining > BLOCK_INTERVAL / 2 {
-            let b = format!("Block({index})");
-            let mg = format!("mg: {}", block.max_gap);
-            let ms = format!("ms: {}", block.max_stake);
-            let mz = format!("mz: {}", block.max_zeros);
-            println!();
-            print_line(vec![b, mg, ms, mz]);
+            let in_block = BLOCK_INTERVAL > block_duration;
+            let remaining = if in_block {
+                BLOCK_INTERVAL - block_duration
+            } else {
+                0
+            };
 
-            let pail = client.get_pail(farmer, index).await;
-            if pail.is_none() {
-                print_line(vec![format!("Planting({index})")]);
-                let planting = client.plant(farmer, stake).await;
-                if planting.is_err() {
-                    return None;
+            if index != prev_index && remaining > BLOCK_INTERVAL / 2 {
+                let b = format!("Block({index})");
+                let mg = format!("mg: {}", block.max_gap);
+                let ms = format!("ms: {}", block.max_stake);
+                let mz = format!("mz: {}", block.max_zeros);
+                println!();
+                print_line(vec![b, mg, ms, mz]);
+
+                let pail = client.get_pail(farmer, index).await;
+                if pail.is_none() {
+                    print_line(vec![format!("Planting({index})")]);
+                    let planting = client.plant(farmer, stake).await;
+                    if planting.is_err() {
+                        return None;
+                    }
                 }
-            }
 
-            return Some(WorkLoad {
-                index,
-                farmer: raw_farmer,
-                entropy,
-                remaining,
-            });
-        } else if block_duration > BLOCK_INTERVAL + 60 {
-            let _ = client.plant(farmer, stake).await;
-        } else if block_duration < BLOCK_INTERVAL {
-            let sleep_duration = (BLOCK_INTERVAL - block_duration) as u32;
-            for _ in (0..sleep_duration).step_by(5).rev() {
+                return Some(WorkLoad {
+                    index,
+                    farmer: raw_farmer,
+                    entropy,
+                    remaining,
+                });
+            } else if block_duration > BLOCK_INTERVAL + 60 {
+                let _ = client.plant(farmer, stake).await;
+            } else if block_duration < BLOCK_INTERVAL {
+                let sleep_duration = (BLOCK_INTERVAL - block_duration) as u32;
+                for _ in (0..sleep_duration).step_by(5).rev() {
+                    sleep5.tick().await;
+                }
+            } else {
                 sleep5.tick().await;
             }
-        } else {
-            sleep5.tick().await;
         }
     }
 }
