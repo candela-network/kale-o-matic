@@ -15,7 +15,7 @@ use soroban_client::{
     address::AddressTrait,
     keypair::{Keypair, KeypairBehavior},
     network::{NetworkPassphrase, Networks},
-    server::Options,
+    Options,
 };
 use types::{Pail, WorkLoad};
 
@@ -84,12 +84,7 @@ async fn main() {
         keypair.clone(),
         Networks::public().to_string(),
         rpc_url.as_str(),
-        Options {
-            allow_http: None,
-            timeout: Some(1000),
-            headers: None,
-        },
-        //   1000,
+        Options::default(),
     );
 
     let farmer = Address::new(keypair.public_key().as_str()).expect("Not an address");

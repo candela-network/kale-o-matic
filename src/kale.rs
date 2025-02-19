@@ -6,18 +6,16 @@ use std::time::Instant;
 use soroban_client::address::{Address, AddressTrait as _};
 use soroban_client::contract::{contract_id_strkey, ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
-use soroban_client::server::{Options, Server};
-use soroban_client::soroban_rpc::soroban_rpc::{
-    GetTransactionResponse, SendTransactionResponse, SendTransactionStatus,
-};
+use soroban_client::soroban_rpc::{SendTransactionResponse, SendTransactionStatus};
 use soroban_client::transaction::TransactionBehavior;
 use soroban_client::transaction::TransactionBuilder;
 use soroban_client::transaction_builder::TransactionBuilderBehavior;
-use soroban_client::xdr::next::LedgerKeyContractData;
-use soroban_client::xdr::next::ScBytes;
-use soroban_client::xdr::next::{int128_helpers::*, LedgerKey};
-use soroban_client::xdr::next::{ContractDataDurability, LedgerEntryData};
-use soroban_client::xdr::next::{Hash, Limits, ReadXdr, ScAddress, ScSymbol, ScVal, ScVec};
+use soroban_client::xdr::LedgerKeyContractData;
+use soroban_client::xdr::ScBytes;
+use soroban_client::xdr::{int128_helpers::*, LedgerKey};
+use soroban_client::xdr::{ContractDataDurability, LedgerEntryData};
+use soroban_client::xdr::{Hash, ScAddress, ScSymbol, ScVal, ScVec};
+use soroban_client::{Options, Server};
 use thiserror::Error;
 
 use crate::types::{Block, Pail};
@@ -78,7 +76,7 @@ pub enum KaleErrors {
     #[error("Default error")]
     DefaultError,
     #[error("SorobanError")]
-    SorobanError(#[from] soroban_client::xdr::next::Error),
+    SorobanError(#[from] soroban_client::xdr::Error),
     #[error("UnknownError")]
     UnknownError(#[from] Box<dyn std::error::Error + Send>),
     #[error("ReqwestError")]
@@ -107,7 +105,7 @@ impl KaleClient {
         KaleClient {
             contract: Contracts::new(contract_id).unwrap(),
             network,
-            server: Server::new(rpc_url, opts),
+            server: Server::new(rpc_url, opts).unwrap(),
             keypair,
             //       max_fee,
         }
@@ -128,14 +126,14 @@ impl KaleClient {
 
         let ledger_result = self.server.get_ledger_entries(vec![key]).await;
         if let Ok(block_data) = ledger_result {
-            if let Some(entries) = block_data.result.entries {
+            if let Some(entries) = block_data.entries {
                 let mut sequence = 0;
                 let mut stake = 0;
                 let mut gap = None;
                 let mut zeros = None;
                 for e in entries {
-                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                    let d = e.to_data();
+                    if let LedgerEntryData::ContractData(contract_data_entry) = d {
                         if let ScVal::Map(Some(storage)) = contract_data_entry.val {
                             for s in storage.iter() {
                                 let seq_symbol = ScVal::Symbol("sequence".try_into().unwrap());
@@ -199,11 +197,11 @@ impl KaleClient {
 
         let ledger_result = self.server.get_ledger_entries(vec![key]).await;
         if let Ok(block_data) = ledger_result {
-            if let Some(entries) = block_data.result.entries {
+            if let Some(entries) = block_data.entries {
                 let mut block = Block::default();
                 for e in entries {
-                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                    let d = e.to_data();
+                    if let LedgerEntryData::ContractData(contract_data_entry) = d {
                         if let ScVal::Map(Some(storage)) = contract_data_entry.val {
                             let timestamp_symbol = ScVal::Symbol("timestamp".try_into().unwrap());
                             let min_gap_symbol = ScVal::Symbol("min_gap".try_into().unwrap());
@@ -292,11 +290,11 @@ impl KaleClient {
             .await;
 
         if let Ok(data) = ledger_result {
-            if let Some(entries) = data.result.entries {
+            if let Some(entries) = data.entries {
                 let mut idx = 0;
                 for e in entries {
-                    let d = LedgerEntryData::from_xdr_base64(e.xdr, Limits::none());
-                    if let Ok(LedgerEntryData::ContractData(contract_data_entry)) = d {
+                    let d = e.to_data();
+                    if let LedgerEntryData::ContractData(contract_data_entry) = d {
                         if let ScVal::ContractInstance(instance) = contract_data_entry.val {
                             if let Some(storage) = instance.storage {
                                 for s in storage.iter() {
@@ -358,7 +356,7 @@ impl KaleClient {
             let st = {
                 let ptx = self
                     .server
-                    .prepare_transaction(contract_tx, Some(self.network.as_str()))
+                    .prepare_transaction(contract_tx, self.network.as_str())
                     .await;
                 if let Ok(mut t) = ptx {
                     t.sign(&[self.keypair.clone()]);
@@ -388,29 +386,30 @@ impl KaleClient {
         response: SendTransactionResponse,
     ) -> Result<Option<ScVal>, KaleErrors> {
         let start = Instant::now();
-        let status = response.base.status;
-        let id = response.base.hash;
+        let status = response.status;
+        let id = response.hash;
         match status {
-            SendTransactionStatus::Pending | SendTransactionStatus::Success => {
-                loop {
-                    let r = self
-                        .server
-                        .get_transaction(id.as_str())
-                        .await
-                        .map_err(|_| KaleErrors::ReqwestError)?;
-                    if let GetTransactionResponse::Successful(info) = r {
-                        //
-                        return Ok(info.returnValue);
-                    } else if Instant::now().duration_since(start).as_secs() > 35 {
-                        return Ok(None);
-                    } else if let GetTransactionResponse::Failed(f) = r {
-                        println!("Failed: {:?}", f);
+            SendTransactionStatus::Pending => loop {
+                let r = self
+                    .server
+                    .get_transaction(id.as_str())
+                    .await
+                    .map_err(|_| KaleErrors::ReqwestError)?;
+                match r.status {
+                    soroban_client::soroban_rpc::TransactionStatus::Success => {
+                        let (_, ret_val) = r.to_result_meta().unwrap();
+                        return Ok(ret_val);
+                    }
+                    soroban_client::soroban_rpc::TransactionStatus::Failed => {
                         return Err(KaleErrors::FailedTransaction);
-                    } else {
-                        continue;
+                    }
+                    soroban_client::soroban_rpc::TransactionStatus::NotFound => {
+                        if Instant::now().duration_since(start).as_secs() > 35 {
+                            return Ok(None);
+                        }
                     }
                 }
-            }
+            },
             _ => Ok(None),
         }
     }
@@ -421,7 +420,7 @@ impl FarmTrait for KaleClient {
 
     async fn plant(&self, farmer: &Address, amount: i128) -> Result<(), Self::Error> {
         let farmer_val: ScVal = farmer.to_sc_val().unwrap();
-        let amount_val = ScVal::I128(soroban_client::xdr::next::Int128Parts {
+        let amount_val = ScVal::I128(soroban_client::xdr::Int128Parts {
             hi: i128_hi(amount),
             lo: i128_lo(amount),
         });
