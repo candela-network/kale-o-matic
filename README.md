@@ -25,3 +25,21 @@ Options:
 
 ## How to stop
 You can stop the miner by hitting Ctrl-C, this will make it stop at the next harvest.
+
+## Strategy
+
+1. Harvest the last 24h
+2. Plant
+   
+   If the block is started since more than half of the block interval, do not plant and wait for the next block.
+3. Work
+   
+   Find the hash using the configured number of threads and respecting the min and max zeros settings. It will work until 20s before the end of the block, that should give a gap around 48-50.
+4. Harvest
+   
+   The harvest happens every 10 cycles. This may delay the next plant a little.
+
+## Building
+
+The default release profile uses the `lld` linker and the `native` cpu instruction set.
+You may want to change that.
